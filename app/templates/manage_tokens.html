@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Tokens</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Manage Tokens</h1>
+
+        <h2>Request Tokens</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>UID</th>
+                    <th>Client Name</th>
+                    <th>Request Expiration</th>
+                    <th>Access Expiration</th>
+                    <th>Host</th>
+                    <th>Created</th>
+                    <th>Redeemed</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for token in request_tokens %}
+                <tr>
+                    <td>{{ token.uid }}</td>
+                    <td>{{ token.client_name }}</td>
+                    <td>{{ token.request_expiration }}</td>
+                    <td>{{ token.access_expiration or 'Unlimited' }}</td>
+                    <td>{{ token.host }}</td>
+                    <td>{{ token.created }}</td>
+                    <td>{{ 'Yes' if token.redeemed else 'No' }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-request" data-uid="{{ token.uid }}">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Auth Tokens</h2>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Token</th>
+                    <th>Request UID</th>
+                    <th>Renew After</th>
+                    <th>User Agent</th>
+                    <th>Last Use</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for token in auth_tokens %}
+                <tr>
+                    <td>{{ token.token }}</td>
+                    <td>{{ token.request_uid }}</td>
+                    <td>{{ token.renew_after }}</td>
+                    <td>{{ token.user_agent }}</td>
+                    <td>{{ token.last_use }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-auth" data-token="{{ token.token }}">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.delete-request').click(function() {
+                var uid = $(this).data('uid');
+                if (confirm('Are you sure you want to delete this request token?')) {
+                    // Implement delete functionality
+                    console.log('Delete request token:', uid);
+                }
+            });
+
+            $('.delete-auth').click(function() {
+                var token = $(this).data('token');
+                if (confirm('Are you sure you want to delete this auth token?')) {
+                    // Implement delete functionality
+                    console.log('Delete auth token:', token);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
