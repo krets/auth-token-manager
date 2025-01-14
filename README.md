@@ -17,4 +17,4 @@ For my convenience, there’s an admin interface for generating tokens. It's pre
 
 ## Docker Compose
 
-This repo includes a functional Docker Compose setup for a single test site.
+This repo includes a functional Docker Compose setup for a single test site. `dummysite.example.com`. Adjust your system `hosts` file or use a real DNS entry for testing.
