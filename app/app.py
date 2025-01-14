@@ -113,23 +113,24 @@ def delete_auth(token):
         return '', 204
     return 'Token not found', 404
 
-
-# Auth routes
 @app.route('/auth', methods=['POST', 'GET'], defaults={'path': ''}, strict_slashes=False)
 @app.route('/auth/', methods=['POST', 'GET'], defaults={'path': ''}, strict_slashes=False)
 @app.route('/auth/<path:path>', methods=['POST', 'GET'], strict_slashes=False)
 def auth(path):
+    krets_request_token = request.args.get('krets_request_token')
     krets_auth_token = request.cookies.get('krets_auth_token')
     original_host = request.headers.get('X-Original-Host')
 
-    logging.debug("Auth request initiated. Cookies received: %s, Original Host: %s", krets_auth_token, original_host)
+    logging.debug("Auth request initiated. Request token: %s, Auth token: %s, Original Host: %s", krets_request_token, krets_auth_token, original_host)
+
+    if krets_request_token:
+        response, status_code = handle_redemption(krets_request_token, original_host)
+        # Checking if the status code is 200
+        if status_code == 200:
+            return response, status_code
 
     if krets_auth_token:
         return handle_access(krets_auth_token, original_host)
-    else:
-        krets_request_token = request.args.get('krets_request_token')
-        if krets_request_token:
-            return handle_redemption(krets_request_token, original_host)
 
     logging.warning("Invalid request: No valid tokens found.")
     return jsonify({'error': 'Invalid request', 'args': request.args}), 400
