@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  nginx-reverse-proxy:
+  reverse-proxy:
     image: nginx:latest
     ports:
       - "80:80"
@@ -11,12 +11,12 @@ services:
       - ./nginx/certs:/etc/nginx/certs
       - ./nginx/html:/usr/share/nginx/html:ro
     depends_on:
-      - auth-token-manager
-      - test-html-server
+      - token-manager
+      - test-server
     networks:
       - auth-token-network
 
-  auth-token-manager:
+  token-manager:
     build:
       context: ./app
       dockerfile: Dockerfile
@@ -27,7 +27,7 @@ services:
     networks:
       - auth-token-network
 
-  test-html-server:
+  test-server:
     image: nginx:latest
     volumes:
       - ./dummy_nginx/html:/usr/share/nginx/html:ro
