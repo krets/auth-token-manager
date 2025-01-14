@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auth Token Manager Test</title>
+    <title>OK! Test Site Accessible</title>
     <style>
         body {
             margin: 0;
@@ -24,6 +24,14 @@
             background-color: #000000;
             color: #ffffff;
         }
+        #success-indicator {
+            color: green;
+            font-size: 2em;
+            margin-bottom: 24pt;
+            border: solid 0.15em;
+            padding: 0.3em 0.5em;
+            border-radius: 1em;
+        }
         #token {
             font-family: monospace;
             margin-top: 20px;
@@ -34,7 +42,8 @@
     </style>
 </head>
 <body data-theme="light">
-    <div>Auth Token Manager Test Site OK!</div>
+    <div id="success-indicator">✔</div>
+    <div>You have reached the test site. This is your current auth-token:</div>
     <div id="token">Loading token...</div>
     <script>
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -51,7 +60,11 @@
             return matches ? decodeURIComponent(matches[1]) : undefined;
         }
 
-        document.getElementById('token').textContent = getCookie('krets_auth_token') || 'Token not found';
+        const tokenElement = document.getElementById('token');
+        const token = getCookie('krets_auth_token');
+        tokenElement.textContent = token || 'Token not found';
+
+        document.getElementById('success-indicator').style.display = token ? 'block' : 'none';
     </script>
 </body>
 </html>
