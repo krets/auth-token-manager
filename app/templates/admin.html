@@ -8,6 +8,42 @@
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
         $(document).ready(function() {
+            function updateCreateButtonState() {
+                const nameFilled = $('#clientName').val().trim() !== '';
+                const hostFilled = $('#host').val().trim() !== '';
+                const button = $('#createRequestButton');
+                if (nameFilled && hostFilled) {
+                    button.removeClass('disabled');
+                } else {
+                    button.addClass('disabled');
+                }
+            }
+            $('#clientName, #host').on('input', updateCreateButtonState);
+
+            function showNotification(message) {
+                const notificationContainer = $('#notification');
+                const notification = $(`<div class="notification">${message}</div>`);
+                const button = $('<span class="dismiss-button">X</span>');
+                button.click(function() {
+                    notification.remove();
+                });
+
+                notification.append(button);
+                notificationContainer.append(notification);
+                if (notificationContainer.children().length > 5) {
+                    notificationContainer.children().first().remove();
+                }
+            }
+
+            function copyToClipboard(text) {
+                const tempInput = $('<input>');
+                $('body').append(tempInput);
+                tempInput.val(text).select();
+                document.execCommand('copy');
+                tempInput.remove();
+                showNotification('URL copied to clipboard');
+            }
+
             function getDefaultExpirationDate() {
                 let now = new Date();
                 now.setDate(now.getDate() + 1);
@@ -17,11 +53,13 @@
 
             function loadTokens() {
                 $.get('/admin/get_tokens', function(data) {
-                    // Request Tokens
                     $('#requestTokensBody').empty();
                     data.request_tokens.forEach(function(token) {
+                        const rowClass = token.redeemed ? '' : 'table-unredeemed';
+                        const copyLink = `<button class="copy-link" data-link="http://${token.host}/?krets_request_token=${token.uid}">Copy URL</button>`;
+
                         $('#requestTokensBody').append(`
-                            <tr>
+                            <tr class="${rowClass}">
                                 <td>${token.uid}</td>
                                 <td>${token.client_name}</td>
                                 <td>${token.request_expiration}</td>
@@ -30,31 +68,35 @@
                                 <td>${token.created}</td>
                                 <td>${token.redeemed ? 'Yes' : 'No'}</td>
                                 <td>
+                                    ${!token.redeemed ? copyLink : ''}
                                     <button class="delete-request" data-uid="${token.uid}">Delete</button>
                                 </td>
                             </tr>
                         `);
                     });
 
-                    // Add delete request token handler
+                    $('.copy-link').click(function() {
+                        const link = $(this).data('link');
+                        copyToClipboard(link);
+                    });
+
                     $('.delete-request').click(function() {
                         const uid = $(this).data('uid');
-                        if (confirm('Are you sure you want to delete this request token?')) {
+                        if (confirm(`Are you sure you want to delete this request token? '${uid}'`)) {
                             $.ajax({
                                 url: `/admin/delete_request/${uid}`,
                                 type: 'DELETE',
                                 success: function() {
-                                    alert('Request token deleted successfully.');
                                     loadTokens();
+                                    showNotification(`Request token '${uid}' deleted successfully.`);
                                 },
                                 error: function() {
-                                    alert('Error deleting request token');
+                                    showNotification(`Error deleting request token '${uid}'`);
                                 }
                             });
                         }
                     });
 
-                    // Auth Tokens
                     $('#authTokensBody').empty();
                     data.auth_tokens.forEach(function(token) {
                         $('#authTokensBody').append(`
@@ -71,7 +113,6 @@
                         `);
                     });
 
-                    // Add delete auth token handler
                     $('.delete-auth').click(function() {
                         const token = $(this).data('token');
                         if (confirm('Are you sure you want to delete this auth token?')) {
@@ -79,11 +120,11 @@
                                 url: `/admin/delete_auth/${token}`,
                                 type: 'DELETE',
                                 success: function() {
-                                    alert('Auth token deleted successfully.');
+                                    showNotification('Auth token deleted successfully.');
                                     loadTokens();
                                 },
                                 error: function() {
-                                    alert('Error deleting auth token');
+                                    showNotification(`Error deleting auth token ${token}`);
                                 }
                             });
                         }
@@ -94,7 +135,11 @@
             $('#createRequestForm').submit(function(event) {
                 event.preventDefault();
 
-                var data = {
+                if ($('#createRequestButton').hasClass('disabled')) {
+                    return;
+                }
+
+                const data = {
                     client_name: $('#clientName').val(),
                     request_expiration: $('#requestExpiration').val(),
                     access_expiration: $('#accessExpiration').val(),
@@ -108,12 +153,15 @@
                     data: JSON.stringify(data),
                     success: function(response) {
                         loadTokens();
+                        showNotification(`Request token '${data.client_name}' for '${data.host}' created successfully`);
                     },
                     error: function() {
-                        alert('Error creating request token');
+                        showNotification(`Error creating request token '${data.client_name}' for '${data.host}'`);
                     }
                 });
             });
+
+            setInterval(loadTokens, 30000);  // Checking periodically every 30 seconds
             loadTokens();
         });
     </script>
@@ -121,6 +169,8 @@
 <body>
     <div class="container">
         <h1>Auth Service Admin</h1>
+
+        <div id="notification"></div>
 
         <h3>Create Request Token</h3>
         <form id="createRequestForm">
@@ -140,7 +190,7 @@
                 <label for="host">Host:</label>
                 <input type="text" id="host" class="form-control" required>
             </div>
-            <button type="submit" class="btn">Create Request Token</button>
+            <button type="submit" id="createRequestButton" class="btn disabled">Create Request Token</button>
         </form>
 
         <h3>Active Tokens</h3>
