@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  nginx-reverse-proxy:
+    image: nginx:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/html:/usr/share/nginx/html:ro
+    depends_on:
+      - auth-token-manager
+      - test-html-server
+
+  auth-token-manager:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app/instance:/app/instance
+
+  test-html-server:
+    image: nginx:latest
+    volumes:
+      - ./dummy_nginx/html:/usr/share/nginx/html:ro
+      - ./dummy_nginx/conf.d:/etc/nginx/conf.d

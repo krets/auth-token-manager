@@ -1,3 +1,6 @@
+import signal
+import sys
+
 from flask import Flask, request, jsonify, render_template, make_response
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -53,6 +56,9 @@ class AuthToken(db.Model):
 def admin():
     return render_template('admin.html')
 
+@app.route('/')
+def index():
+    return render_template('default.html')
 
 @app.route('/admin/create_request', methods=['POST'])
 def create_request():
@@ -96,8 +102,10 @@ def delete_auth(token):
     return 'Token not found', 404
 
 # Auth routes
-@app.route('/auth', methods=['POST'])
-def auth():
+@app.route('/auth', methods=['POST', 'GET'], defaults={'path': ''}, strict_slashes=False)
+@app.route('/auth/', methods=['POST', 'GET'], defaults={'path': ''}, strict_slashes=False)
+@app.route('/auth/<path:path>', methods=['POST', 'GET'], strict_slashes=False)
+def auth(path):
     krets_auth_token = request.cookies.get('krets_auth_token')
     original_host = request.headers.get('X-Original-Host')
 
@@ -108,8 +116,7 @@ def auth():
         if krets_request_token:
             return handle_redemption(krets_request_token, original_host)
 
-    return jsonify({'error': 'Invalid request'}), 400
-
+    return jsonify({'error': 'Invalid request', 'args': request.args}), 400
 
 def handle_redemption(request_token_uid, original_host):
     request_token = RequestToken.query.filter_by(uid=request_token_uid, redeemed=False).first()
@@ -162,6 +169,11 @@ def handle_access(auth_token, original_host):
     db.session.commit()
 
     return jsonify({'message': 'Access granted'}), 200
+
+def handle_sigterm(*args):
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_sigterm)
 
 
 if __name__ == '__main__':

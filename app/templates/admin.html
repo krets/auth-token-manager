@@ -4,24 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auth Service Admin</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
         $(document).ready(function() {
-            // Function to get current date/time plus one day formatted as a string
             function getDefaultExpirationDate() {
                 let now = new Date();
                 now.setDate(now.getDate() + 1);
                 return now.toISOString().slice(0, 16);
             }
-
-            // Set the default value for request expiration to now + 1 day
             $('#requestExpiration').val(getDefaultExpirationDate());
 
-            // Load tokens function
             function loadTokens() {
                 $.get('/admin/get_tokens', function(data) {
+                    // Request Tokens
                     $('#requestTokensBody').empty();
                     data.request_tokens.forEach(function(token) {
                         $('#requestTokensBody').append(`
@@ -34,15 +30,67 @@
                                 <td>${token.created}</td>
                                 <td>${token.redeemed ? 'Yes' : 'No'}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-danger delete-request" data-uid="${token.uid}">Delete</button>
+                                    <button class="delete-request" data-uid="${token.uid}">Delete</button>
                                 </td>
                             </tr>
                         `);
                     });
+
+                    // Add delete request token handler
+                    $('.delete-request').click(function() {
+                        const uid = $(this).data('uid');
+                        if (confirm('Are you sure you want to delete this request token?')) {
+                            $.ajax({
+                                url: `/admin/delete_request/${uid}`,
+                                type: 'DELETE',
+                                success: function() {
+                                    alert('Request token deleted successfully.');
+                                    loadTokens();
+                                },
+                                error: function() {
+                                    alert('Error deleting request token');
+                                }
+                            });
+                        }
+                    });
+
+                    // Auth Tokens
+                    $('#authTokensBody').empty();
+                    data.auth_tokens.forEach(function(token) {
+                        $('#authTokensBody').append(`
+                            <tr>
+                                <td>${token.token}</td>
+                                <td>${token.request_uid}</td>
+                                <td>${token.renew_after}</td>
+                                <td>${token.user_agent || 'N/A'}</td>
+                                <td>${token.last_use}</td>
+                                <td>
+                                    <button class="delete-auth" data-token="${token.token}">Delete</button>
+                                </td>
+                            </tr>
+                        `);
+                    });
+
+                    // Add delete auth token handler
+                    $('.delete-auth').click(function() {
+                        const token = $(this).data('token');
+                        if (confirm('Are you sure you want to delete this auth token?')) {
+                            $.ajax({
+                                url: `/admin/delete_auth/${token}`,
+                                type: 'DELETE',
+                                success: function() {
+                                    alert('Auth token deleted successfully.');
+                                    loadTokens();
+                                },
+                                error: function() {
+                                    alert('Error deleting auth token');
+                                }
+                            });
+                        }
+                    });
                 });
             }
 
-            // Create request token
             $('#createRequestForm').submit(function(event) {
                 event.preventDefault();
 
@@ -59,55 +107,49 @@
                     contentType: 'application/json',
                     data: JSON.stringify(data),
                     success: function(response) {
-                        alert('Request token created successfully. UID: ' + response.uid);
-                        loadTokens(); // Refresh the token list
+                        loadTokens();
                     },
                     error: function() {
                         alert('Error creating request token');
                     }
                 });
-
             });
-
-            // Load initial tokens
             loadTokens();
         });
     </script>
 </head>
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">Auth Service Admin</h1>
+    <div class="container">
+        <h1>Auth Service Admin</h1>
 
-        <h2>Create Request Token</h2>
-        <form id="createRequestForm" class="mb-5">
+        <h3>Create Request Token</h3>
+        <form id="createRequestForm">
             <div class="form-group">
-                <label for="clientName">Client Name:</label>
-                <input type="text" class="form-control" id="clientName" required>
+                <label for="clientName">Name:</label>
+                <input type="text" id="clientName" class="form-control" required>
             </div>
             <div class="form-group">
                 <label for="requestExpiration">Request Expiration:</label>
-                <input type="datetime-local" class="form-control" id="requestExpiration" required>
+                <input type="datetime-local" id="requestExpiration" class="form-control" required>
             </div>
             <div class="form-group">
                 <label for="accessExpiration">Access Expiration:</label>
-                <input type="datetime-local" class="form-control" id="accessExpiration">
+                <input type="datetime-local" id="accessExpiration" class="form-control">
             </div>
             <div class="form-group">
                 <label for="host">Host:</label>
-                <input type="text" class="form-control" id="host" required>
+                <input type="text" id="host" class="form-control" required>
             </div>
-            <button type="submit" class="btn btn-primary">Create Request Token</button>
+            <button type="submit" class="btn">Create Request Token</button>
         </form>
 
-        <hr>
-
-        <h2>Active Tokens</h2>
-        <h3>Request Tokens</h3>
+        <h3>Active Tokens</h3>
+        <h4>Request Tokens</h4>
         <table class="table table-striped">
             <thead>
                 <tr>
                     <th>UID</th>
-                    <th>Client Name</th>
+                    <th>Name</th>
                     <th>Request Expiration</th>
                     <th>Access Expiration</th>
                     <th>Host</th>
@@ -117,11 +159,10 @@
                 </tr>
             </thead>
             <tbody id="requestTokensBody">
-                <!-- Request tokens will be populated here -->
             </tbody>
         </table>
 
-        <h3>Auth Tokens</h3>
+        <h4>Auth Tokens</h4>
         <table class="table table-striped">
             <thead>
                 <tr>
@@ -134,7 +175,6 @@
                 </tr>
             </thead>
             <tbody id="authTokensBody">
-                <!-- Auth tokens will be populated here -->
             </tbody>
         </table>
     </div>
