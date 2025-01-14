@@ -96,18 +96,20 @@ def get_tokens():
 
 @app.route('/admin/delete_request/<uid>', methods=['DELETE'])
 def delete_request(uid):
-    token = RequestToken.query.filter_by(uid=uid).first()
-    if token:
-        db.session.delete(token)
+    request_token = RequestToken.query.filter_by(uid=uid).first()
+    if request_token:
+        AuthToken.query.filter_by(request_uid=uid).delete()
+        db.session.delete(request_token)
         db.session.commit()
         return '', 204
     return 'Token not found', 404
-
 
 @app.route('/admin/delete_auth/<token>', methods=['DELETE'])
 def delete_auth(token):
     auth_token = AuthToken.query.filter_by(token=token).first()
     if auth_token:
+        request_token_uid = auth_token.request_uid
+        RequestToken.query.filter_by(uid=request_token_uid).delete()
         db.session.delete(auth_token)
         db.session.commit()
         return '', 204
@@ -124,10 +126,19 @@ def auth(path):
     logging.debug("Auth request initiated. Request token: %s, Auth token: %s, Original Host: %s", krets_request_token, krets_auth_token, original_host)
 
     if krets_request_token:
-        response, status_code = handle_redemption(krets_request_token, original_host)
-        # Checking if the status code is 200
-        if status_code == 200:
-            return response, status_code
+        result = handle_redemption(krets_request_token, original_host)
+        try:
+            if isinstance(result, tuple):
+                response, status_code = result
+            elif hasattr(result, 'status_code'):
+                response, status_code = result, result.status_code
+            else:
+                raise ValueError("Invalid result type")
+
+            if status_code == 200:
+                return response, status_code
+        except Exception as e:
+            logging.debug("unexpected redemption result: %s", result)
 
     if krets_auth_token:
         return handle_access(krets_auth_token, original_host)
