@@ -13,6 +13,8 @@ services:
     depends_on:
       - auth-token-manager
       - test-html-server
+    networks:
+      - auth-token-network
 
   auth-token-manager:
     build:
@@ -22,9 +24,17 @@ services:
       - "5000:5000"
     volumes:
       - ./app/instance:/app/instance
+    networks:
+      - auth-token-network
 
   test-html-server:
     image: nginx:latest
     volumes:
       - ./dummy_nginx/html:/usr/share/nginx/html:ro
       - ./dummy_nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - auth-token-network
+
+networks:
+  auth-token-network:
+    driver: bridge
