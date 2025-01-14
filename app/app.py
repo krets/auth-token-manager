@@ -1,5 +1,6 @@
 import signal
 import sys
+import logging
 
 from flask import Flask, request, jsonify, render_template, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -10,6 +11,9 @@ import os
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///auth_service.db'
 db = SQLAlchemy(app)
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
 
 
 # Models
@@ -34,6 +38,7 @@ class RequestToken(db.Model):
             'redeemed': self.redeemed
         }
 
+
 class AuthToken(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     token = db.Column(db.String(36), unique=True, nullable=False)
@@ -51,14 +56,17 @@ class AuthToken(db.Model):
             'last_use': self.last_use.isoformat()
         }
 
+
 # Admin routes
 @app.route('/admin')
 def admin():
     return render_template('admin.html')
 
+
 @app.route('/')
 def index():
     return render_template('default.html')
+
 
 @app.route('/admin/create_request', methods=['POST'])
 def create_request():
@@ -79,10 +87,13 @@ def create_request():
 def get_tokens():
     request_tokens = RequestToken.query.all()
     auth_tokens = AuthToken.query.all()
-    return jsonify({
-        'request_tokens': [token.to_dict() for token in request_tokens],
-        'auth_tokens': [token.to_dict() for token in auth_tokens]
-    })
+    return jsonify(
+        {
+            'request_tokens': [token.to_dict() for token in request_tokens],
+            'auth_tokens': [token.to_dict() for token in auth_tokens]
+        })
+
+
 @app.route('/admin/delete_request/<uid>', methods=['DELETE'])
 def delete_request(uid):
     token = RequestToken.query.filter_by(uid=uid).first()
@@ -91,6 +102,7 @@ def delete_request(uid):
         db.session.commit()
         return '', 204
     return 'Token not found', 404
+
 
 @app.route('/admin/delete_auth/<token>', methods=['DELETE'])
 def delete_auth(token):
@@ -101,6 +113,7 @@ def delete_auth(token):
         return '', 204
     return 'Token not found', 404
 
+
 # Auth routes
 @app.route('/auth', methods=['POST', 'GET'], defaults={'path': ''}, strict_slashes=False)
 @app.route('/auth/', methods=['POST', 'GET'], defaults={'path': ''}, strict_slashes=False)
@@ -109,6 +122,8 @@ def auth(path):
     krets_auth_token = request.cookies.get('krets_auth_token')
     original_host = request.headers.get('X-Original-Host')
 
+    logging.debug("Auth request initiated. Cookies received: %s, Original Host: %s", krets_auth_token, original_host)
+
     if krets_auth_token:
         return handle_access(krets_auth_token, original_host)
     else:
@@ -116,17 +131,31 @@ def auth(path):
         if krets_request_token:
             return handle_redemption(krets_request_token, original_host)
 
+    logging.warning("Invalid request: No valid tokens found.")
     return jsonify({'error': 'Invalid request', 'args': request.args}), 400
 
-def handle_redemption(request_token_uid, original_host):
-    request_token = RequestToken.query.filter_by(uid=request_token_uid, redeemed=False).first()
 
-    if not request_token or request_token.request_expiration < datetime.utcnow() or \
-            (request_token.access_expiration and request_token.access_expiration < datetime.utcnow()) or \
-            request_token.host != original_host:
+def handle_redemption(request_token_uid, original_host):
+    request_token = RequestToken.query.filter_by(uid=request_token_uid).first()
+
+    error = None
+    if not request_token:
+        error = "Token not found: '%s'" % request_token_uid
+    elif request_token.redeemed:
+        error = "Token already redeemed."
+    elif request_token.request_expiration < datetime.utcnow():
+        error = "Token has expired."
+    elif request_token.host != original_host:
+        error = "Redemption failed: Host mismatch."
+
+    if error is not None:
+        logging.error("Redemption failed: %s", error)
         return jsonify({'error': 'Invalid or expired request token'}), 400
 
     request_token.redeemed = True
+
+    logging.info("Token redeemed successfully: %s", request_token_uid)
+
     auth_token = AuthToken(
         token=str(uuid.uuid4()),
         request_uid=request_token.uid,
@@ -143,11 +172,14 @@ def handle_redemption(request_token_uid, original_host):
 
 def handle_access(auth_token, original_host):
     auth_token = AuthToken.query.filter_by(token=auth_token).first()
+
     if not auth_token:
+        logging.error("Access denied: Invalid auth token.")
         return jsonify({'error': 'Invalid auth token'}), 400
 
     request_token = RequestToken.query.filter_by(uid=auth_token.request_uid).first()
     if not request_token or request_token.host != original_host:
+        logging.error("Access denied: Invalid host.")
         return jsonify({'error': 'Invalid host'}), 400
 
     if auth_token.renew_after < datetime.utcnow():
@@ -161,6 +193,8 @@ def handle_access(auth_token, original_host):
         db.session.delete(auth_token)
         db.session.commit()
 
+        logging.info("Auth token renewed for request: %s", auth_token.request_uid)
+
         response = make_response(jsonify({'message': 'Token renewed'}))
         response.set_cookie('krets_auth_token', new_auth_token.token)
         return response
@@ -168,13 +202,15 @@ def handle_access(auth_token, original_host):
     auth_token.last_use = datetime.utcnow()
     db.session.commit()
 
+    logging.info("Access granted for token: %s", auth_token.token)
     return jsonify({'message': 'Access granted'}), 200
+
 
 def handle_sigterm(*args):
     sys.exit(0)
 
-signal.signal(signal.SIGTERM, handle_sigterm)
 
+signal.signal(signal.SIGTERM, handle_sigterm)
 
 if __name__ == '__main__':
     with app.app_context():

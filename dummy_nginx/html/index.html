@@ -1,5 +1,57 @@
-<html>
-<body>
-auth-token-manager test html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth Token Manager Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body[data-theme='light'] {
+            background-color: #ffffff;
+            color: #000000;
+        }
+        body[data-theme='dark'] {
+            background-color: #000000;
+            color: #ffffff;
+        }
+        #token {
+            font-family: monospace;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid currentColor;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body data-theme="light">
+    <div>Auth Token Manager Test Site OK!</div>
+    <div id="token">Loading token...</div>
+    <script>
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        document.body.dataset.theme = mediaQuery.matches ? 'dark' : 'light';
+
+        mediaQuery.addEventListener('change', event => {
+            document.body.dataset.theme = event.matches ? 'dark' : 'light';
+        });
+
+        function getCookie(name) {
+            let matches = document.cookie.match(new RegExp(
+                "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+            ));
+            return matches ? decodeURIComponent(matches[1]) : undefined;
+        }
+
+        document.getElementById('token').textContent = getCookie('krets_auth_token') || 'Token not found';
+    </script>
 </body>
 </html>
