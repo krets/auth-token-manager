@@ -11,6 +11,7 @@ import os
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///auth_service.db'
 db = SQLAlchemy(app)
+db_initialized = False
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
@@ -218,13 +219,20 @@ def handle_access(auth_token, original_host):
     return jsonify({'message': 'Access granted'}), 200
 
 
+def init_db():
+    global db_initialized
+    if not db_initialized:
+        db_initialized = True
+        with app.app_context():
+            db.create_all()
+
+
 def handle_sigterm(*args):
     sys.exit(0)
 
 
 signal.signal(signal.SIGTERM, handle_sigterm)
 
+init_db()
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True)
